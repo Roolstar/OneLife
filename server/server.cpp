@@ -7006,7 +7006,9 @@ int main() {
                                         }
                                     
                                     if( canPlace ) {
-
+                                        nextPlayer->heldTransitionSourceID =
+                                            nextPlayer->holdingID;
+                                        
                                         if( nextPlayer->numContained > 0 &&
                                             r->newActor == 0 &&
                                             r->newTarget > 0 &&

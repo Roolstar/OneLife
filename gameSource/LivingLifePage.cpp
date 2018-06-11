@@ -7163,9 +7163,7 @@ static char shouldCreationSoundPlay( int inOldID, int inNewID ) {
           ||
           inOldID <= 0
           ||
-          ( ! isSpriteSubset( inOldID, inNewID ) 
-            &&
-            ! isAncestor( inOldID, inNewID, 1 ) ) ) ) {
+          ( ! isSpriteSubset( inOldID, inNewID ) ) ) ) {
         return true;
         }
 
@@ -9629,6 +9627,23 @@ void LivingLifePage::step() {
                             break;
                             }
                         }
+
+                    if( existing != NULL &&
+                        existing->id == ourID ) {
+                        // got a PU for self
+                        
+                        if( existing->lastActionSendStartTime != 0 ) {
+                            
+                            // PU for an action that we sent
+                            // measure round-trip time
+                            existing->lastResponseTimeDelta = 
+                                game_getCurrentTime() - 
+                                existing->lastActionSendStartTime;
+                            
+                            existing->lastActionSendStartTime = 0;
+                            }
+                        }
+                    
                     
                     if( existing != NULL &&
                         existing->destTruncated &&
@@ -10346,12 +10361,7 @@ void LivingLifePage::step() {
                                                  ||
                                                  ( ! isSpriteSubset( 
                                                      testAncestor, 
-                                                     existing->holdingID )
-                                                   &&
-                                                   ! isAncestor(
-                                                       testAncestor,
-                                                       existing->holdingID,
-                                                       1 ) )
+                                                     existing->holdingID ) )
                                                  ) ) {
 
                                                 playSound( 
@@ -11082,7 +11092,12 @@ void LivingLifePage::step() {
                     gameObjects.getElement( gameObjects.size() - 1 );
                 
                 ourID = ourObject->id;
+
+                // we have no measurement yet
+                ourObject->lastActionSendStartTime = 0;
+                ourObject->lastResponseTimeDelta = 0;
                 
+
                 remapRandSource.reseed( ourID );
 
                 printf( "Got first PLAYER_UPDATE message, our ID = %d\n",
@@ -12929,6 +12944,9 @@ void LivingLifePage::step() {
         }
     
 
+    double currentTime = game_getCurrentTime();
+    
+
     if( nextActionMessageToSend != NULL
         && ourLiveObject != NULL
         && ourLiveObject->currentSpeed == 0 
@@ -12962,7 +12980,7 @@ void LivingLifePage::step() {
                 ourLiveObject->pendingActionAnimationProgress;
 
             ourLiveObject->pendingActionAnimationStartTime = 
-                game_getCurrentTime();
+                currentTime;
             
             if( nextActionEating ) {
                 addNewAnim( ourLiveObject, eating );
@@ -12976,9 +12994,12 @@ void LivingLifePage::step() {
         // wait until 
         // we've stopped moving locally
         // AND animation has played for a bit
+        // (or we know that recent ping has been long enough so that
+        //  animation will play long enough without waiting ahead of time)
         // AND server agrees with our position
         if( ! ourLiveObject->inMotion && 
-            ourLiveObject->pendingActionAnimationTotalProgress > 0.25 &&
+            currentTime - ourLiveObject->pendingActionAnimationStartTime > 
+            0.166 - ourLiveObject->lastResponseTimeDelta &&
             ourLiveObject->xd == ourLiveObject->xServer &&
             ourLiveObject->yd == ourLiveObject->yServer ) {
             
@@ -12986,6 +13007,8 @@ void LivingLifePage::step() {
             // move end acked by server AND action animation in progress
 
             // queued action waiting for our move to end
+            
+            ourLiveObject->lastActionSendStartTime = currentTime;
             sendToServerSocket( nextActionMessageToSend );
             
             // reset the timer, because we've gotten some information
