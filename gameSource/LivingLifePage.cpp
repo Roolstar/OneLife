@@ -1611,7 +1611,8 @@ void LivingLifePage::clearMap() {
             randSource.getRandomBoundedInt( 0, 10000 );
         
         mMapAnimationFrozenRotFrameCount[i] = 0;
-
+        mMapAnimationFrozenRotFrameCountUsed[i] = false;
+        
         mMapFloorAnimationFrameCount[i] = 
             randSource.getRandomBoundedInt( 0, 10000 );
 
@@ -1660,6 +1661,12 @@ LivingLifePage::LivingLifePage()
                      "ABCDEFGHIJKLMNOPQRSTUVWXYZ.-,'?! " ),
           mDeathReason( NULL ),
           mShowHighlights( true ) {
+
+    mYumSlipSprites[0] = loadSprite( "yumSlip1.tga", false );
+    mYumSlipSprites[1] = loadSprite( "yumSlip2.tga", false );
+    mYumSlipSprites[2] = loadSprite( "yumSlip3.tga", false );
+    mYumSlipSprites[3] = loadSprite( "yumSlip4.tga", false );
+
     
     mCurMouseOverCell.x = -1;
     mCurMouseOverCell.y = -1;
@@ -1716,6 +1723,20 @@ LivingLifePage::LivingLifePage()
     mHomeSlipHideOffset.x = 0;
     mHomeSlipHideOffset.y = -360;
 
+
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {    
+        mYumSlipHideOffset[i].x = -600;
+        mYumSlipHideOffset[i].y = -330;
+        }
+    
+    mYumSlipHideOffset[2].x += 70;
+    mYumSlipHideOffset[3].x += 80;
+
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {    
+        mYumSlipPosOffset[i] = mYumSlipHideOffset[i];
+        mYumSlipPosTargetOffset[i] = mYumSlipHideOffset[i];
+        }
+    
 
     for( int i=0; i<3; i++ ) {    
         mHungerSlipShowOffsets[i].x = -540;
@@ -1807,6 +1828,8 @@ LivingLifePage::LivingLifePage()
     mMapAnimationFrameCount =  new double[ mMapD * mMapD ];
     mMapAnimationLastFrameCount =  new double[ mMapD * mMapD ];
     mMapAnimationFrozenRotFrameCount =  new double[ mMapD * mMapD ];
+
+    mMapAnimationFrozenRotFrameCountUsed =  new char[ mMapD * mMapD ];
     
     mMapFloorAnimationFrameCount =  new int[ mMapD * mMapD ];
 
@@ -1969,6 +1992,8 @@ LivingLifePage::~LivingLifePage() {
     delete [] mMapAnimationFrameCount;
     delete [] mMapAnimationLastFrameCount;
     delete [] mMapAnimationFrozenRotFrameCount;
+    
+    delete [] mMapAnimationFrozenRotFrameCountUsed;
 
     delete [] mMapFloorAnimationFrameCount;
 
@@ -2012,6 +2037,10 @@ LivingLifePage::~LivingLifePage() {
     
     for( int i=0; i<3; i++ ) {
         freeSprite( mHungerSlipSprites[i] );
+        }
+
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {
+        freeSprite( mYumSlipSprites[i] );
         }
 
     freeSprite( mGuiPanelSprite );
@@ -2440,6 +2469,7 @@ void LivingLifePage::drawMapCell( int inMapI,
                 mMapAnimationFrameCount[ inMapI ] += animSpeed;
                 mMapAnimationLastFrameCount[ inMapI ] += animSpeed;
                 mMapAnimationFrozenRotFrameCount[ inMapI ] += animSpeed;
+                mMapAnimationFrozenRotFrameCountUsed[ inMapI ] = false;
                 }
             else {
                 mMapAnimationFrameCount[ inMapI ] ++;
@@ -2471,9 +2501,9 @@ void LivingLifePage::drawMapCell( int inMapI,
                         mMapAnimationLastFrameCount[ inMapI ] =
                             mMapAnimationFrameCount[ inMapI ];
                         
-                        mMapAnimationFrameCount[ inMapI ] = 0;
                         
-                        if( newType == moving ) {
+                        if( newType == moving &&
+                            mMapAnimationFrozenRotFrameCountUsed[ inMapI ] ) {
                             mMapAnimationFrameCount[ inMapI ] = 
                                 mMapAnimationFrozenRotFrameCount[ inMapI ];
                             }
@@ -2597,8 +2627,6 @@ void LivingLifePage::drawMapCell( int inMapI,
             }
                 
                 
-        // ignore
-        char used = false;
             
         char flip = mMapTileFlips[ inMapI ];
         
@@ -2727,7 +2755,7 @@ void LivingLifePage::drawMapCell( int inMapI,
                             fadeTargetType,
                             targetTimeVal,
                             frozenRotTimeVal,
-                            &used,
+                            &( mMapAnimationFrozenRotFrameCountUsed[ inMapI ] ),
                             endAnimType,
                             endAnimType,
                             passPos, rot, false, flip,
@@ -2747,7 +2775,7 @@ void LivingLifePage::drawMapCell( int inMapI,
                             fadeTargetType, 
                             targetTimeVal,
                             frozenRotTimeVal,
-                            &used,
+                            &( mMapAnimationFrozenRotFrameCountUsed[ inMapI ] ),
                             endAnimType,
                             endAnimType,
                             passPos, rot,
@@ -5729,7 +5757,8 @@ void LivingLifePage::draw( doublePair inViewCenter,
     if( hideGuiPanel ) {
         // skip gui
         return;
-        }
+        }    
+        
 
 
     doublePair slipPos = add( mHomeSlipPosOffset, lastScreenViewCenter );
@@ -6147,6 +6176,46 @@ void LivingLifePage::draw( doublePair inViewCenter,
             drawSprite( mHungerSlipSprites[i], slipPos );
             }
         }
+
+
+
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {
+
+        if( ! equal( mYumSlipPosOffset[i], mYumSlipHideOffset[i] ) ) {
+            doublePair slipPos = 
+                add( mYumSlipPosOffset[i], lastScreenViewCenter );
+            setDrawColor( 1, 1, 1, 1 );
+            drawSprite( mYumSlipSprites[i], slipPos );
+            
+            doublePair messagePos = slipPos;
+            messagePos.y += 11;
+
+            if( mYumSlipNumberToShow[i] != 0 ) {
+                char *s = autoSprintf( "%dx", mYumSlipNumberToShow[i] );
+
+                setDrawColor( 0, 0, 0, 1 );
+                handwritingFont->drawString( s, messagePos, alignCenter );
+                delete [] s;
+                }
+            if( i == 2 || i == 3 ) {
+                setDrawColor( 0, 0, 0, 1 );
+
+                const char *word;
+                
+                if( i == 3 ) {
+                    word = translate( "meh" );
+                    }
+                else {
+                    word = translate( "yum" );
+                    }
+
+                handwritingFont->drawString( word, messagePos, alignCenter );
+                }
+            }
+        }
+
+
+
     
     // info panel at bottom
     setDrawColor( 1, 1, 1, 1 );
@@ -6281,6 +6350,29 @@ void LivingLifePage::draw( doublePair inViewCenter,
             pencilErasedFont->drawString( 
                 mOldDesStrings.getElementDirect( i ), pos, alignCenter );
             }
+
+        doublePair yumPos = { lastScreenViewCenter.x - 480, 
+                              lastScreenViewCenter.y - 313 };
+        
+        setDrawColor( 0, 0, 0, 1 );
+        if( mYumBonus > 0 ) {    
+            char *yumString = autoSprintf( "+%d", mYumBonus );
+            
+            pencilFont->drawString( yumString, yumPos, alignLeft );
+            delete [] yumString;
+            }
+        
+        for( int i=0; i<mOldYumBonus.size(); i++ ) {
+            float fade =
+                mOldYumBonusFades.getElementDirect( i );
+            
+            setDrawColor( 0, 0, 0, fade * pencilErasedFontExtraFade );
+            char *yumString = autoSprintf( "+%d", 
+                                           mOldYumBonus.getElementDirect( i ) );
+            pencilErasedFont->drawString( yumString, yumPos, alignLeft );
+            delete [] yumString;
+            }
+
 
 
         doublePair atePos = { lastScreenViewCenter.x, 
@@ -7372,7 +7464,6 @@ void LivingLifePage::step() {
                     mMapAnimationFrozenRotFrameCount[ i ] = 
                         mMapAnimationLastFrameCount[ i ];
                     
-                    mMapAnimationFrameCount[ i ] = 0;
                     }
                 }
             else {
@@ -7587,8 +7678,49 @@ void LivingLifePage::step() {
             }
         }
 
+
+
+    // update yum slip positions
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {
+        
+        if( ! equal( mYumSlipPosOffset[i], mYumSlipPosTargetOffset[i] ) ) {
+            doublePair delta = 
+                sub( mYumSlipPosTargetOffset[i], mYumSlipPosOffset[i] );
+            
+            double d = 
+                distance( mYumSlipPosTargetOffset[i], mYumSlipPosOffset[i] );
+            
+            
+            if( d <= 1 ) {
+                mYumSlipPosOffset[i] = mYumSlipPosTargetOffset[i];
+                }
+            else {
+                int speed = frameRateFactor * 4;
+                
+                if( d < 8 ) {
+                    speed = lrint( frameRateFactor * d / 2 );
+                    }
+                
+                if( speed > d ) {
+                    speed = floor( d );
+                    }
+                
+                if( speed < 1 ) {
+                    speed = 1;
+                    }
+                
+                doublePair dir = normalize( delta );
+                
+                mYumSlipPosOffset[i] = 
+                    add( mYumSlipPosOffset[i],
+                         mult( dir, speed ) );
+                }        
+            }
+        }
     
 
+    
+    // update home slip positions
     if( ! equal( mHomeSlipPosOffset, mHomeSlipPosTargetOffset ) ) {
         doublePair delta = 
             sub( mHomeSlipPosTargetOffset, mHomeSlipPosOffset );
@@ -8216,6 +8348,9 @@ void LivingLifePage::step() {
             double *newMapAnimationFrozenRotFameCount = 
                 new double[ mMapD * mMapD ];
 
+            char *newMapAnimationFrozenRotFameCountUsed = 
+                new char[ mMapD * mMapD ];
+
             int *newMapFloorAnimationFrameCount = new int[ mMapD * mMapD ];
         
             AnimType *newMapCurAnimType = new AnimType[ mMapD * mMapD ];
@@ -8260,6 +8395,7 @@ void LivingLifePage::step() {
                     newMapAnimationFrameCount[i];
                 
                 newMapAnimationFrozenRotFameCount[i] = 0;
+                newMapAnimationFrozenRotFameCountUsed[i] = false;
                 
                 newMapFloorAnimationFrameCount[i] =
                     lrint( getXYRandom( worldX, worldY ) * 13853 );
@@ -8304,6 +8440,9 @@ void LivingLifePage::step() {
                     newMapAnimationFrozenRotFameCount[i] = 
                         mMapAnimationFrozenRotFrameCount[oI];
 
+                    newMapAnimationFrozenRotFameCountUsed[i] = 
+                        mMapAnimationFrozenRotFrameCountUsed[oI];
+
                     newMapFloorAnimationFrameCount[i] = 
                         mMapFloorAnimationFrameCount[oI];
                     
@@ -8341,6 +8480,10 @@ void LivingLifePage::step() {
             memcpy( mMapAnimationFrozenRotFrameCount, 
                     newMapAnimationFrozenRotFameCount, 
                     mMapD * mMapD * sizeof( double ) );
+
+            memcpy( mMapAnimationFrozenRotFrameCountUsed, 
+                    newMapAnimationFrozenRotFameCountUsed, 
+                    mMapD * mMapD * sizeof( char ) );
 
             
             memcpy( mMapFloorAnimationFrameCount, 
@@ -8387,6 +8530,7 @@ void LivingLifePage::step() {
             delete [] newMapAnimationFrameCount;
             delete [] newMapAnimationLastFrameCount;
             delete [] newMapAnimationFrozenRotFameCount;
+            delete [] newMapAnimationFrozenRotFameCountUsed;
             delete [] newMapFloorAnimationFrameCount;
             
             delete [] newMapCurAnimType;
@@ -8839,9 +8983,12 @@ void LivingLifePage::step() {
                                     mMapCurAnimType[ mapI ] = moving;
                                     mMapLastAnimFade[ mapI ] = 1;
 
-                                    mMapAnimationFrameCount[ mapI ] =
-                                        mMapAnimationFrozenRotFrameCount[ 
-                                            oldMapI ];
+                                    if( mMapAnimationFrozenRotFrameCountUsed[
+                                            mapI ] ) {
+                                        mMapAnimationFrameCount[ mapI ] =
+                                            mMapAnimationFrozenRotFrameCount[ 
+                                                oldMapI ];
+                                        }
                                     }
                                 
                                 int oldLocID = mMap[ oldMapI ];
@@ -9469,6 +9616,7 @@ void LivingLifePage::step() {
                 
                 int responsiblePlayerID = -1;
                 
+                int heldYum = 0;
 
                 int numRead = sscanf( lines[i], 
                                       "%d %d "
@@ -9476,7 +9624,8 @@ void LivingLifePage::step() {
                                       "%d "
                                       "%d %d "
                                       "%499s %d %d %d %d %f %d %d %d %d "
-                                      "%lf %lf %lf %499s %d %d %d",
+                                      "%lf %lf %lf %499s %d %d %d "
+                                      "%d",
                                       &( o.id ),
                                       &( o.displayID ),
                                       &facingOverride,
@@ -9499,10 +9648,12 @@ void LivingLifePage::step() {
                                       clothingBuffer,
                                       &justAte,
                                       &justAteID,
-                                      &responsiblePlayerID );
+                                      &responsiblePlayerID,
+                                      &heldYum);
                 
                 
-                if( numRead == 23 ) {
+                // heldYum is 24th value, optional
+                if( numRead >= 23 ) {
 
                     applyReceiveOffset( &actionTargetX, &actionTargetY );
                     applyReceiveOffset( &heldOriginX, &heldOriginY );
@@ -9632,6 +9783,26 @@ void LivingLifePage::step() {
                         existing->id == ourID ) {
                         // got a PU for self
                         
+                        mYumSlipPosTargetOffset[2] = mYumSlipHideOffset[2];
+                        mYumSlipPosTargetOffset[3] = mYumSlipHideOffset[3];
+                        
+                        int slipIndexToShow = -1;
+                        if( heldYum ) {
+                            // YUM
+                            slipIndexToShow = 2;
+                            }
+                        else {
+                            if( o.holdingID > 0 &&
+                                getObject( o.holdingID )->foodValue > 0 ) {
+                                // MEH
+                                slipIndexToShow = 3;
+                                }
+                            }
+                        
+                        if( slipIndexToShow >= 0 ) {
+                            mYumSlipPosTargetOffset[slipIndexToShow].y += 36;
+                            }
+
                         if( existing->lastActionSendStartTime != 0 ) {
                             
                             // PU for an action that we sent
@@ -12020,14 +12191,87 @@ void LivingLifePage::step() {
                 int foodCapacity;
                 double lastSpeed;
 
-                sscanf( message, "FX\n%d %d %d %d %lf %d", 
+                int oldYumBonus = mYumBonus;
+                mYumBonus = 0;
+                
+                int oldYumMultiplier = mYumMultiplier;
+                mYumMultiplier = 0;
+                
+
+                sscanf( message, "FX\n%d %d %d %d %lf %d %d %d", 
                         &( foodStore ),
                         &( foodCapacity ),
                         &( lastAteID ),
                         &( lastAteFillMax ),
                         &( lastSpeed ),
-                        &responsiblePlayerID );
+                        &responsiblePlayerID,
+                        &mYumBonus, &mYumMultiplier );
+
+
                 
+                if( oldYumBonus != mYumBonus ) {
+                    // pull out of old stack, if present
+                    for( int i=0; i<mOldYumBonus.size(); i++ ) {
+                        if( mOldYumBonus.getElementDirect( i ) == mYumBonus ) {
+                            mOldYumBonus.deleteElement( i );
+                            i--;
+                            }
+                        }
+                    
+                    // fade existing
+                    for( int i=0; i<mOldYumBonus.size(); i++ ) {
+                        float fade =
+                            mOldYumBonusFades.getElementDirect( i );
+                        
+                        if( fade > 0.5 ) {
+                            fade -= 0.20;
+                            }
+                        else {
+                            fade -= 0.1;
+                            }
+                        
+                        *( mOldYumBonusFades.getElement( i ) ) = fade;
+                        if( fade <= 0 ) {
+                            mOldYumBonus.deleteElement( i );
+                            mOldYumBonusFades.deleteElement( i );
+                            i--;
+                            }
+                        }                    
+
+                    if( oldYumBonus != 0 ) {
+                        // push on top of stack
+                        mOldYumBonus.push_back( oldYumBonus );
+                        mOldYumBonusFades.push_back( 1.0f );
+                        }
+                    }
+                
+                if( mYumMultiplier != oldYumMultiplier ) {
+                    int oldSlipIndex = -1;
+                    int newSlipIndex = 0;
+                    
+                    for( int i=0; i<2; i++ ) {
+                        if( mYumSlipNumberToShow[i] == oldYumMultiplier ) {
+                            oldSlipIndex = i;
+                            newSlipIndex = ( i + 1 ) % 2;
+                            }
+                        }
+                    if( oldSlipIndex != -1 ) {
+                        mYumSlipPosTargetOffset[ oldSlipIndex ] =
+                            mYumSlipHideOffset[ oldSlipIndex ];
+                        }
+
+                    mYumSlipPosTargetOffset[ newSlipIndex ] =
+                        mYumSlipHideOffset[ newSlipIndex ];
+                    
+                    if( mYumMultiplier > 0 ) {
+                        mYumSlipPosTargetOffset[ newSlipIndex ].y += 36;
+                        }
+                    mYumSlipNumberToShow[ newSlipIndex ] = mYumMultiplier;
+                    }
+                
+                
+                
+
                 if( responsiblePlayerID != -1 &&
                     getLiveObject( responsiblePlayerID ) != NULL &&
                     getLiveObject( responsiblePlayerID )->
@@ -13328,6 +13572,20 @@ void LivingLifePage::makeActive( char inFresh ) {
     mOldLastAteFades.deleteAll();
     mOldLastAteBarFades.deleteAll();
     
+    mYumBonus = 0;
+    mOldYumBonus.deleteAll();
+    mOldYumBonusFades.deleteAll();
+    
+    mYumMultiplier = 0;
+    
+    
+    for( int i=0; i<NUM_YUM_SLIPS; i++ ) {
+        mYumSlipPosOffset[i] = mYumSlipHideOffset[i];
+        mYumSlipPosTargetOffset[i] = mYumSlipHideOffset[i];
+        mYumSlipNumberToShow[i] = 0;
+        }
+    
+
     mCurrentArrowI = 0;
     mCurrentArrowHeat = -1;
     if( mCurrentDes != NULL ) {
