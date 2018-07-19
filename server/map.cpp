@@ -1606,22 +1606,6 @@ int countNewlines( char *inString ) {
 
 
 
-#include "../gameSource/categoryBank.h"
-
-
-// true if ID is a non-pattern category
-char getIsCategory( int inID ) {
-    CategoryRecord *r = getCategory( inID );
-    
-    if( r == NULL ) {
-        return false;
-        }
-    if( r->isPattern ) {
-        return false;
-        }
-    return true;
-    }
-
 
 
 // returns num set after
@@ -1665,12 +1649,8 @@ int cleanMap() {
                 
                 ObjectRecord *o = getObject( id );
                 
-                if( o == NULL || getIsCategory( id ) ) {
+                if( o == NULL ) {
                     // id doesn't exist anymore
-                    
-                    // OR it's a non-pattern category
-                    // those should never exist in map
-                    // may be left over from a non-clean shutdown
                     
                     numClearedCount++;
                     
@@ -1731,7 +1711,7 @@ int cleanMap() {
                     
                     ObjectRecord *o = getObject( - cont[c] );
                     
-                    if( o != NULL && ! getIsCategory( - cont[c] ) ) {
+                    if( o != NULL ) {
                         
                         thisKept = true;
                         
@@ -1747,9 +1727,7 @@ int cleanMap() {
 
                         for( int s=0; s<numSub; s++ ) {
                             
-                            if( getObject( contSub[s] ) != NULL &&
-                                ! getIsCategory( contSub[s] ) ) {
-                                
+                            if( getObject( contSub[s] ) != NULL ) {
                                 subCont.push_back( contSub[s] );
                                 subContDecay.push_back( decaySub[s] );
                                 }
@@ -1766,7 +1744,7 @@ int cleanMap() {
                     }
                 else {
                     ObjectRecord *o = getObject( cont[c] );
-                    if( o != NULL && ! getIsCategory( cont[c] ) ) {
+                    if( o != NULL ) {
                         
                         thisKept = true;
                         newCont.push_back( cont[c] );
